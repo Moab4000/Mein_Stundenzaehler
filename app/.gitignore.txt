@@ -1,0 +1,36 @@
+# Gradle  Build
+.gradle
+build
+!gradlewrappergradle-wrapper.jar
+
+# Android  Local configs
+local.properties
+.iml
+.idea
+captures
+.externalNativeBuild
+.cxx
+
+# Keystore  Signierung (NIEMALS committen)
+.jks
+.keystore
+.keystore.
+keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Google  Secrets
+google-services.json
+.keystore
+.pem
+.p12
+
+# Log  tmp
+.log
+tmp
+.tmp
+
+# KotlinJava
+out
