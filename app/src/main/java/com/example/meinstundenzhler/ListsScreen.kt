@@ -1,6 +1,5 @@
 package com.example.meinstundenzhler
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,185 +14,117 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.meinstundenzhler.data.MonthlyListRepository
+import com.example.meinstundenzhler.data.ShiftRepository
+import com.example.meinstundenzhler.utils.computeDurationMinutes
+import com.example.meinstundenzhler.utils.formatHours
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListsScreen(
     onBack: () -> Unit,
-    repository: MonthlyListRepository,
+    monthlyRepo: MonthlyListRepository,
+    shiftRepo: ShiftRepository,
     onOpenDetail: (Long) -> Unit
 ) {
-    val months = listOf(
+    val scope = rememberCoroutineScope()
+
+    val monthsNames = listOf(
         "Januar","Februar","März","April","Mai","Juni",
         "Juli","August","September","Oktober","November","Dezember"
     )
 
-    val lists by repository.getAll()
-        .map { it.sortedByDescending { e -> e.createdAt } }
+    val lists by monthlyRepo.getAll()
+        .map { it.sortedByDescending { m -> m.createdAt } }
         .collectAsState(initial = emptyList())
 
-    val scope = rememberCoroutineScope()
+    // Platz am Ende der Liste
+    val bottomInset  = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val spacerHeight = bottomInset + 96.dp
 
-    // Zustand für Bestätigungsdialog
     var toDeleteId by remember { mutableStateOf<Long?>(null) }
     var toDeleteTitle by remember { mutableStateOf<String?>(null) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    Box(Modifier.fillMaxSize().padding(16.dp)) {
+
         Column(
-            modifier = Modifier.align(Alignment.TopCenter),
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(12.dp))
-            AppTitle(text = "Meine Listen")
+            Text("Meine Listen", style = MaterialTheme.typography.titleLarge)
         }
 
         LazyColumn(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth(),
+            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(items = lists, key = { it.id }) { item ->
+            items(lists, key = { it.id }) { item ->
+                // Summen für die Karte berechnen
+                val shifts by shiftRepo.getByMonthlyList(item.id).collectAsState(initial = emptyList())
+                val minutes = remember(shifts) {
+                    shifts.sumOf { s -> computeDurationMinutes(s.startEpochMillis, s.endEpochMillis, s.breakMinutes) }
+                }
+                val earned = minutes / 60.0 * item.hourlyWage
+                val totalWithCarry = earned + item.previousDebt
+                val carryThisMonth = item.monthlyIncome?.let { totalWithCarry - it }
 
-                val dismissState = rememberSwipeToDismissBoxState(
-                    confirmValueChange = { value ->
-                        if (value != SwipeToDismissBoxValue.Settled) {
-                            toDeleteId = item.id
-                            toDeleteTitle = "${months[item.monthIndex]} ${item.year}"
-                            false // nicht sofort entfernen; erst bestätigen
-                        } else {
-                            false
-                        }
-                    }
-                )
-
-                SwipeToDismissBox(
-                    state = dismissState,
-                    enableDismissFromStartToEnd = true,
-                    enableDismissFromEndToStart = true,
-                    backgroundContent = {
-                        val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled
-                        val bg = if (isSwiping)
-                            MaterialTheme.colorScheme.errorContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(bg)
-                                .padding(horizontal = 20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Icon(
-                                imageVector = Icons.Filled.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenDetail(item.id) },
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenDetail(item.id) },
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    Row(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(Modifier.weight(1f)) {
+                            Text("${monthsNames[item.monthIndex]} ${item.year}",
+                                style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(6.dp))
+                            Text("Arbeitszeit: ${formatHours(minutes)} h")
+                            Text("Verdient (ohne Übertrag): ${"%.2f".format(earned)} €")
+                            item.monthlyIncome?.let {
+                                Text("Monatlicher Verdienst: ${"%.2f".format(it)} €")
+                                Text("Übertrag (dieser Monat): %+.2f €".format(carryThisMonth ?: 0.0))
+                            } ?: Text("Übertrag Vormonat: %+.2f €".format(item.previousDebt))
+                        }
+                        IconButton(
+                            onClick = {
+                                toDeleteId = item.id
+                                toDeleteTitle = "${monthsNames[item.monthIndex]} ${item.year}"
+                            }
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    text = "${months[item.monthIndex]} ${item.year}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                Text("Stundenlohn: ${"%.2f".format(item.hourlyWage)} €/h")
-                                Text(
-                                    "Monatlicher Verdienst: " +
-                                            (item.monthlyIncome?.let { "%.2f".format(it) + " €" } ?: "—")
-                                )
-                                Text("Übertrag Vormonat: %+.2f €".format(item.previousDebt))
-
-                            }
-
-                            IconButton(
-                                onClick = {
-                                    toDeleteId = item.id
-                                    toDeleteTitle = "${months[item.monthIndex]} ${item.year}"
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Delete,
-                                    contentDescription = "Eintrag löschen",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
+                            Icon(Icons.Filled.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
             }
+
+            // 👇 Unsichtbarer Spacer am Ende
+            item { Spacer(Modifier.height(spacerHeight)) }
         }
 
-        // Zurück unten links
+        // Zurück (unten links)
         FilledTonalIconButton(
             onClick = onBack,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .size(56.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Zurück"
-            )
-        }
+            modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().size(56.dp)
+        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück") }
     }
 
-    // Bestätigungs-Dialog
-    if (toDeleteId != null) {
+    // Bestätigung löschen
+    toDeleteId?.let { id ->
         AlertDialog(
             onDismissRequest = { toDeleteId = null; toDeleteTitle = null },
             title = { Text("Eintrag löschen?") },
-            text = {
-                Text(
-                    toDeleteTitle?.let { "Möchtest du „$it“ wirklich löschen?" }
-                        ?: "Möchtest du den Eintrag wirklich löschen?"
-                )
-            },
+            text  = { Text("Möchtest du „${toDeleteTitle ?: "diesen Monat"}“ wirklich löschen?") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        val id = toDeleteId ?: return@TextButton
-                        scope.launch {
-                            repository.deleteById(id)
-                            toDeleteId = null
-                            toDeleteTitle = null
-                        }
-                    }
-                ) { Text("Löschen") }
+                TextButton(onClick = {
+                    scope.launch { monthlyRepo.deleteById(id) }
+                    toDeleteId = null; toDeleteTitle = null
+                }) { Text("Löschen") }
             },
-            dismissButton = {
-                TextButton(onClick = { toDeleteId = null; toDeleteTitle = null }) {
-                    Text("Abbrechen")
-                }
-            }
+            dismissButton = { TextButton(onClick = { toDeleteId = null; toDeleteTitle = null }) { Text("Abbrechen") } }
         )
     }
 }

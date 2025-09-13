@@ -14,19 +14,15 @@ fun HomeScreen(
     onStartClick: () -> Unit,
     onListsClick: () -> Unit
 ) {
-    val ctx = LocalContext.current
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Titel nicht ganz oben
         Spacer(modifier = Modifier.weight(0.10f))
         AppTitle(text = "Mein Stundenzähler")
 
-        // Buttons ungefähr in der Mitte
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -38,24 +34,17 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 PrimaryActionButton(
-                    label = "Start",
+                    label = "Listen erstellen",
                     onClick = onStartClick,
-                    modifier = Modifier
-                        .width(240.dp)
-                        .height(56.dp),
+                    modifier = Modifier.width(240.dp).height(56.dp),
                     contentPaddingH = 24.dp,
                     contentPaddingV = 16.dp,
                     textSizeSp = 22
                 )
                 PrimaryActionButton(
                     label = "Meine Listen",
-                    onClick = {
-                        Toast.makeText(ctx, "Meine Listen gedrückt", Toast.LENGTH_SHORT).show()
-                        onListsClick()
-                    },
-                    modifier = Modifier
-                        .width(240.dp)
-                        .height(56.dp),
+                    onClick = onListsClick, // <-- nur noch Navigation, kein Toast mehr
+                    modifier = Modifier.width(240.dp).height(56.dp),
                     contentPaddingH = 24.dp,
                     contentPaddingV = 16.dp,
                     textSizeSp = 20

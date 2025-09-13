@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,6 +14,8 @@ import com.example.meinstundenzhler.data.MonthlyListRepository
 import com.example.meinstundenzhler.ui.theme.MeinStundenzählerTheme
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.fillMaxSize
+import com.example.meinstundenzhler.data.ShiftRepository
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,10 +39,9 @@ class MainActivity : ComponentActivity() {
 fun AppNav() {
     val nav = rememberNavController()
     val ctx = LocalContext.current
-
-    val db = remember(ctx) { AppDatabase.getInstance(ctx) }
-    val repo = remember { MonthlyListRepository(db.monthlyListDao()) }
-    val shiftRepo = remember { com.example.meinstundenzhler.data.ShiftRepository(db.shiftDao()) }
+    val db = AppDatabase.getInstance(ctx)
+    val monthlyRepo = MonthlyListRepository(db.monthlyListDao())
+    val shiftRepo = ShiftRepository(db.shiftDao())
 
     NavHost(navController = nav, startDestination = "home") {
         composable("home") {
@@ -52,27 +52,29 @@ fun AppNav() {
         }
         composable("start") {
             StartScreen(
-                onBack   = { nav.popBackStack() },
-                repository = repo,
-                onSaved  = { newId -> nav.navigate("list/$newId") } // direkt zum Detail des neuen Monats
+                onBack = { nav.popBackStack() },
+                repository = monthlyRepo,
+                onSaved = { nav.navigate("lists") }
             )
         }
         composable("lists") {
             ListsScreen(
                 onBack = { nav.popBackStack() },
-                repository = repo,
-                onOpenDetail = { id -> nav.navigate("list/$id") }    // Kartenklick öffnet Detail
+                monthlyRepo = monthlyRepo,
+                shiftRepo = shiftRepo,                      // ⬅️ neu
+                onOpenDetail = { id -> nav.navigate("detail/$id") }
             )
         }
-        composable("list/{id}") { backStackEntry ->
-            val id = backStackEntry.arguments?.getString("id")?.toLongOrNull() ?: return@composable
+        composable("detail/{id}") { backStack ->
+            val id = backStack.arguments?.getString("id")!!.toLong()
             ListDetailScreen(
                 listId = id,
-                monthlyRepo = repo,
+                monthlyRepo = monthlyRepo,
                 shiftRepo = shiftRepo,
                 onBack = { nav.popBackStack() }
             )
         }
     }
 }
+
 

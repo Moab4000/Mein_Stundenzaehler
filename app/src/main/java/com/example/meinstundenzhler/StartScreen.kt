@@ -51,14 +51,6 @@ fun StartScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Titel
-        Column(
-            modifier = Modifier.align(Alignment.TopCenter),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(Modifier.height(12.dp))
-            AppTitle(text = "Start-Seite")
-        }
 
         // Inhalt
         Column(
@@ -79,7 +71,10 @@ fun StartScreen(
                     label = { Text("Monat der Liste") },
                     readOnly = true,
                     modifier = Modifier
-                        .menuAnchor()
+                        .menuAnchor(
+                        type = MenuAnchorType.PrimaryNotEditable, // Feld ist readOnly
+                        enabled = true
+                    )
                         .fillMaxWidth(),
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) }
                 )
@@ -136,7 +131,7 @@ fun StartScreen(
                     carryText = if (out.isEmpty() && raw.startsWith("-")) "-" else out.toString()
                 },
                 label = { Text("Übertrag Vormonat (±)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 suffix = { Text("€") },
                 modifier = Modifier.fillMaxWidth()
@@ -185,12 +180,11 @@ fun StartScreen(
             onClick = onBack,
             modifier = Modifier
                 .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(start = 16.dp, bottom = 16.dp)
                 .size(56.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Zurück"
-            )
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
         }
     }
 }
