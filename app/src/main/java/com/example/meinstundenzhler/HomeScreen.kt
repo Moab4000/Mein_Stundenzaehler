@@ -1,34 +1,32 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class)
 
 package com.example.meinstundenzhler
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.meinstundenzhler.ui.detail.components.HomeTopBar
 
 @Composable
 fun HomeScreen(
     onStartClick: () -> Unit,
     onListsClick: () -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onAddNoteClick: () -> Unit,
+    onMyNotesClick: () -> Unit,
+    onSettingsClick: () -> Unit = {},
+    onTipsClick: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Mein Stundenzähler") },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Einstellungen")
-                    }
-                }
+            HomeTopBar(
+                onSettingsClick = onSettingsClick,
+                onTipsClick = onTipsClick
             )
         }
     ) { inner ->
@@ -51,7 +49,7 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "Willkommen 👋",
+                        "Stundenzähler",
                         style = MaterialTheme.typography.titleLarge
                     )
                     Text(
@@ -82,7 +80,7 @@ fun HomeScreen(
                                 .height(52.dp),
                             shape = MaterialTheme.shapes.large
                         ) {
-                            Icon(Icons.Outlined.ViewList, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Outlined.ViewList, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("Meine Listen")
                         }
@@ -90,28 +88,55 @@ fun HomeScreen(
                 }
             }
 
-            // kleine Info-Zeile (optional)
-            Surface(
-                tonalElevation = 2.dp,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth()
+
+            //Notizen erstellen
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge
             ) {
                 Column(
-                    Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "Tipps",
-                        style = MaterialTheme.typography.titleSmall
+                        "Notizen erstellen",
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Text(
-                        "• Pausen werden berücksichtigt\n" +
-                                "• Summen pro Monat automatisch\n" +
-                                "• PDF wird direkt geöffnet",
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodySmall
+                        "Erfasse Notizen schnell und Speichere sie als PDF.",
+                        style = MaterialTheme.typography.bodyMedium
                     )
+
+                    // Primäre Aktionen nebeneinander
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = onAddNoteClick,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            shape = MaterialTheme.shapes.large
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Notizen erstellen")
+                        }
+                        OutlinedButton(
+                            onClick = onMyNotesClick,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            shape = MaterialTheme.shapes.large
+                        ) {
+                            Icon(Icons.AutoMirrored.Outlined.ViewList, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Meine Notizen")
+                        }
+                    }
                 }
             }
 

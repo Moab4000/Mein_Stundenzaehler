@@ -62,7 +62,7 @@ fun ShiftItemCard(
             }
 
             Spacer(Modifier.height(8.dp))
-            Divider()
+            HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
             Row(

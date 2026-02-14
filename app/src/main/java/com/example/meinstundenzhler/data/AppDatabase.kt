@@ -6,13 +6,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [MonthlyList::class, Shift::class], // Shift hinzugefügt
-    version = 2,                                   // Version erhöht
+    entities = [MonthlyList::class, Shift::class, Note::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun monthlyListDao(): MonthlyListDao
-    abstract fun shiftDao(): ShiftDao                     // NEU
+    abstract fun shiftDao(): ShiftDao
+    abstract fun noteDao(): NoteDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -24,7 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "stundenzaehler.db"
                 )
-                    .fallbackToDestructiveMigration() // in DEV: löscht DB bei Schema-Änderung
+                    .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }
     }
