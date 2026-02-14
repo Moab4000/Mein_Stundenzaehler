@@ -14,6 +14,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+private val DATE_DE: java.time.format.DateTimeFormatter = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShiftEditorDialog(
@@ -40,7 +43,7 @@ fun ShiftEditorDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Datum: ${date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}")
+                Text("Datum: ${date.format(DATE_DE)}")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { date = date.minusDays(1) }) { Text("− Tag") }
                     OutlinedButton(onClick = { date = date.plusDays(1) }) { Text("+ Tag") }

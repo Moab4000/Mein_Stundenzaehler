@@ -19,7 +19,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/* ---------- Öffnen (Cache) ODER Speichern (SAF) ---------- */
+/* ---------- Öffnen (Cache) ---------- */
 
 suspend fun cacheMonthPdf(
     context: Context,
@@ -45,25 +45,6 @@ suspend fun cacheMonthPdf(
     )
 }
 
-suspend fun exportMonthAsPdf(
-    context: Context,
-    uri: Uri,
-    listId: Long,
-    monthlyRepo: MonthlyListRepository,
-    shiftRepo: ShiftRepository
-) {
-    val monthly = monthlyRepo.getById(listId).first() ?: error("Liste nicht gefunden")
-    val shifts = shiftRepo.getByMonthlyList(listId).first().sortedBy { it.startEpochMillis }
-
-    val pdf = PdfDocument()
-    drawMonthReport(pdf, monthly, shifts)
-
-    context.contentResolver.openOutputStream(uri).use { out ->
-        pdf.writeTo(out!!)
-    }
-    pdf.close()
-}
-
 /* -------------------- Zeichnen -------------------- */
 
 private fun drawMonthReport(
@@ -78,16 +59,26 @@ private fun drawMonthReport(
     val line = 16f
     val bottom = pageH - margin
 
+    // Gibt es irgendwo Pausen?
+    val totalBreakMin = shifts.sumOf { it.breakMinutes.toLong() }
+    val hasBreaks = totalBreakMin > 0
+
     // Spaltenpositionen
     val colDate = margin
     val colFrom = margin + 110
     val colTo   = colFrom + 60
     val colDur  = colTo + 60
+    val colBreak = if (hasBreaks) colDur + 60 else null
     val colAmtRight = pageW - margin   // rechtsbündig
 
     // Pinsel
     val text = Paint().apply { isAntiAlias = true; textSize = 12f }
     val bold = Paint(text).apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+
+    // Tabellarische Ziffern
+    val num = Paint(text).apply { fontFeatureSettings = "tnum" }
+    val numBold = Paint(bold).apply { fontFeatureSettings = "tnum" }
+
     val section = Paint(bold).apply { textSize = 14f }
     val divider = Paint(text).apply { color = Color.LTGRAY; strokeWidth = 0.7f }
 
@@ -96,7 +87,7 @@ private fun drawMonthReport(
     val zone = ZoneId.systemDefault()
     val dfDate = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
-    // Summen (Pause wird berücksichtigt, aber NICHT gedruckt)
+    // Summen (Pause wird berücksichtigt, aber NICHT separat in der Dauer gedruckt)
     val minutes = shifts.sumOf { s -> computeDurationMinutes(s.startEpochMillis, s.endEpochMillis, s.breakMinutes) }
     val earned = minutes / 60.0 * monthly.hourlyWage
     val totalWithCarry = earned + monthly.previousDebt
@@ -117,7 +108,7 @@ private fun drawMonthReport(
     var c = page.canvas
     var y = margin
 
-    // --- Header: NUR Titel (keine Kennzahlen) ---
+    // --- Header ---
     fun drawHeader() {
         c.drawText(
             "Abrechnung – ${monthName(monthly.monthIndex)} ${monthly.year}",
@@ -127,12 +118,13 @@ private fun drawMonthReport(
         y += line * 1.2f
     }
 
-    // --- Tabellenkopf: direkt unter dem Titel ---
+    // --- Tabellenkopf ---
     fun drawTableHeader() {
         c.drawText("Datum", colDate, y, bold)
         c.drawText("Von",   colFrom, y, bold)
         c.drawText("Bis",   colTo,   y, bold)
         c.drawText("Dauer", colDur,  y, bold)
+        colBreak?.let { c.drawText("Pause", it, y, bold) }
         bold.drawRight("Betrag", colAmtRight, y, c)
         y += line * 0.8f
         c.drawLine(margin, y, pageW - margin, y, text)
@@ -152,9 +144,22 @@ private fun drawMonthReport(
     }
 
     // — Helfer: K/V-Zeile in der Zusammenfassung
-    fun drawKV(label: String, value: String, emphasize: Boolean = false, valueColor: Int? = null) {
+    fun drawKV(
+        label: String,
+        value: String,
+        emphasize: Boolean = false,
+        valueColor: Int? = null,
+        numeric: Boolean = true
+    ) {
         val lp = if (emphasize) bold else text
-        val vp = Paint(if (emphasize) bold else text).apply { valueColor?.let { color = it } }
+        val baseValuePaint = when {
+            numeric && emphasize -> numBold
+            numeric && !emphasize -> num
+            !numeric && emphasize -> bold
+            else -> text
+        }
+        val vp = Paint(baseValuePaint).apply { valueColor?.let { color = it } }
+
         c.drawText(label, margin, y, lp)
         vp.drawRight(value, colAmtRight, y, c)
         y += line
@@ -164,7 +169,7 @@ private fun drawMonthReport(
     drawHeader()
     drawTableHeader()
 
-    // --- Tabellenzeilen (ohne Pause/Notiz)
+    // --- Tabellenzeilen ---
     shifts.forEach { s ->
         val start = Instant.ofEpochMilli(s.startEpochMillis).atZone(zone)
         val end   = Instant.ofEpochMilli(s.endEpochMillis).atZone(zone)
@@ -175,12 +180,22 @@ private fun drawMonthReport(
         c.drawText(dfDate.format(start), colDate, y, text)
         c.drawText("%02d:%02d".format(start.hour, start.minute), colFrom, y, text)
         c.drawText("%02d:%02d".format(end.hour,   end.minute),   colTo,   y, text)
-        c.drawText(formatHours(dMin), colDur, y, text)
-        text.drawRight(fmtCurr.format(amount), colAmtRight, y, c)
+        c.drawText(formatHours(dMin), colDur, y, num)
+
+        // Nur wenn es irgendwo Pausen gibt, wird die Spalte gezeigt
+        colBreak?.let { x ->
+            if (s.breakMinutes > 0) {
+                c.drawText("${s.breakMinutes} min", x, y, num)
+            } else {
+                c.drawText("—", x, y, text)
+            }
+        }
+
+        num.drawRight(fmtCurr.format(amount), colAmtRight, y, c)
         y += line
     }
 
-    // --- Zusammenfassung unter der Tabelle ---
+    // --- Zusammenfassung ---
     fun ensureSpace(linesNeeded: Float) {
         if (y > bottom - line * linesNeeded) {
             pdf.finishPage(page)

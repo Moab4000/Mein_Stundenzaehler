@@ -1,92 +1,133 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.meinstundenzhler
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.meinstundenzhler.data.MonthlyList
-import com.example.meinstundenzhler.data.MonthlyListRepository
-import com.example.meinstundenzhler.ui.theme.MeinStundenzählerTheme
+import androidx.compose.foundation.text.KeyboardOptions
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.example.meinstundenzhler.data.MonthlyList
+import com.example.meinstundenzhler.data.MonthlyListRepository
+import com.example.meinstundenzhler.utils.MONTHS
 
-
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StartScreen(
     onBack: () -> Unit,
     repository: MonthlyListRepository,
-    onSaved: (Long) -> Unit   // nach dem Speichern zur Detail-Seite mit neuer ID
+    onSaved: () -> Unit
 ) {
-    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val months = listOf(
-        "Januar","Februar","März","April","Mai","Juni",
-        "Juli","August","September","Oktober","November","Dezember"
-    )
-    val currentMonthIndex = remember { LocalDate.now().monthValue - 1 }
-    val currentYear = remember { LocalDate.now().year }
+    // Defaults
+    val now = LocalDate.now()
+    var monthIndex by remember { mutableStateOf(now.monthValue - 1) } // 0..11
+    var year by remember { mutableStateOf(now.year) }
 
-    var monthExpanded by rememberSaveable { mutableStateOf(false) }
-    var selectedMonthIndex by rememberSaveable { mutableStateOf(currentMonthIndex) }
+    var monthMenuOpen by remember { mutableStateOf(false) }
+    var yearMenuOpen by remember { mutableStateOf(false) }
 
-    var wageText by rememberSaveable { mutableStateOf("") }           // €/h
-    var monthlyIncomeText by rememberSaveable { mutableStateOf("") }  // € (optional)
-    var carryText by rememberSaveable { mutableStateOf("") }          // Übertrag (±), optional
+    // Jahr-Liste (z. B. 10 Jahre zurück, 3 Jahre vor)
+    val YEARS_BEFORE = 10
+    val YEARS_AFTER = 3
+    val years = remember(now.year) {
+        ((now.year - YEARS_BEFORE)..(now.year + YEARS_AFTER)).toList().reversed()
+    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    var wageText by remember { mutableStateOf("") }
+    var monthlyIncomeText by remember { mutableStateOf("") }
+    var carryText by remember { mutableStateOf("") }
 
-        // Inhalt
+    fun parseDoubleOrNull(s: String): Double? =
+        s.trim().replace(',', '.').toDoubleOrNull()
+
+    val wage = parseDoubleOrNull(wageText)
+    val income = monthlyIncomeText.trim().takeIf { it.isNotEmpty() }?.let(::parseDoubleOrNull)
+    val carry = carryText.trim().takeIf { it.isNotEmpty() }?.let(::parseDoubleOrNull) ?: 0.0
+
+    val canSave = wage != null && (monthlyIncomeText.isBlank() || income != null)
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Liste erstellen") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                    }
+                }
+            )
+        }
+    ) { inner ->
         Column(
             modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth(0.9f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxSize()
+                .padding(inner)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Monat wählen
-            ExposedDropdownMenuBox(
-                expanded = monthExpanded,
-                onExpandedChange = { monthExpanded = !monthExpanded },
-            ) {
-                OutlinedTextField(
-                    value = months[selectedMonthIndex],
-                    onValueChange = { },
-                    label = { Text("Monat der Liste") },
-                    readOnly = true,
-                    modifier = Modifier
-                        .menuAnchor(
-                        type = MenuAnchorType.PrimaryNotEditable, // Feld ist readOnly
-                        enabled = true
-                    )
-                        .fillMaxWidth(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) }
-                )
-                ExposedDropdownMenu(
-                    expanded = monthExpanded,
-                    onDismissRequest = { monthExpanded = false }
+            // Monat + Jahr nebeneinander
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+
+                // Monat
+                ExposedDropdownMenuBox(
+                    expanded = monthMenuOpen,
+                    onExpandedChange = { monthMenuOpen = it },
+                    modifier = Modifier.weight(2f)
                 ) {
-                    months.forEachIndexed { idx, m ->
-                        DropdownMenuItem(
-                            text = { Text(m) },
-                            onClick = { selectedMonthIndex = idx; monthExpanded = false }
-                        )
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        value = MONTHS[monthIndex],
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Monat der Liste") }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = monthMenuOpen,
+                        onDismissRequest = { monthMenuOpen = false }
+                    ) {
+                        MONTHS.forEachIndexed { idx, name ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = { monthIndex = idx; monthMenuOpen = false }
+                            )
+                        }
+                    }
+                }
+
+                // Jahr
+                ExposedDropdownMenuBox(
+                    expanded = yearMenuOpen,
+                    onExpandedChange = { yearMenuOpen = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        value = year.toString(),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Jahr") }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = yearMenuOpen,
+                        onDismissRequest = { yearMenuOpen = false }
+                    ) {
+                        years.forEach { y ->
+                            DropdownMenuItem(
+                                text = { Text(y.toString()) },
+                                onClick = { year = y; yearMenuOpen = false }
+                            )
+                        }
                     }
                 }
             }
@@ -94,105 +135,69 @@ fun StartScreen(
             // Stundenlohn
             OutlinedTextField(
                 value = wageText,
-                onValueChange = { wageText = it.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' } },
+                onValueChange = { wageText = it },
                 label = { Text("Stundenlohn") },
+                prefix = { Text("€ ") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
-                suffix = { Text("€/h") },
+                supportingText = {
+                    if (wage == null && wageText.isNotBlank()) Text("Bitte Zahl eingeben (z. B. 14.50)")
+                },
+                isError = wage == null && wageText.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             )
 
             // Monatlicher Verdienst (optional)
             OutlinedTextField(
                 value = monthlyIncomeText,
-                onValueChange = { monthlyIncomeText = it.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' } },
+                onValueChange = { monthlyIncomeText = it },
                 label = { Text("Monatlicher Verdienst (optional)") },
+                prefix = { Text("€ ") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
-                suffix = { Text("€") },
+                supportingText = {
+                    if (monthlyIncomeText.isNotBlank() && income == null)
+                        Text("Bitte Zahl eingeben oder Feld leer lassen")
+                },
+                isError = monthlyIncomeText.isNotBlank() && income == null,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Übertrag (±) vom Vormonat
+            // Übertrag Vormonat (±)
             OutlinedTextField(
                 value = carryText,
-                onValueChange = { raw ->
-                    val s = raw.replace(',', '.')
-                    var minusSeen = false
-                    var dotSeen = false
-                    val out = StringBuilder()
-                    s.forEachIndexed { i, ch ->
-                        when {
-                            ch.isDigit() -> out.append(ch)
-                            ch == '-' && i == 0 && !minusSeen -> { out.append(ch); minusSeen = true }
-                            ch == '.' && !dotSeen           -> { out.append(ch); dotSeen = true }
-                        }
-                    }
-                    carryText = if (out.isEmpty() && raw.startsWith("-")) "-" else out.toString()
-                },
+                onValueChange = { carryText = it },
                 label = { Text("Übertrag Vormonat (±)") },
+                prefix = { Text("€ ") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
-                suffix = { Text("€") },
+                supportingText = { Text("Leer = 0,00 €") },
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(Modifier.height(8.dp))
 
-            // Speichern
+            // CTA
             Button(
                 onClick = {
-                    val wage = wageText.replace(',', '.').toDoubleOrNull()
-                    val income = monthlyIncomeText.replace(',', '.').toDoubleOrNull()
-                    val carry = carryText
-                        .takeIf { it.isNotBlank() && it != "-" }
-                        ?.replace(',', '.')
-                        ?.toDoubleOrNull() ?: 0.0
-
-                    if (wage == null || wage <= 0.0) {
-                        Toast.makeText(ctx, "Bitte gültigen Stundenlohn eingeben.", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    val entity = MonthlyList(
-                        year = currentYear,
-                        monthIndex = selectedMonthIndex,
-                        hourlyWage = wage,
-                        monthlyIncome = income,
-                        previousDebt = carry     // <- Übertrag speichern (kann + oder − sein)
-                    )
-
+                    if (!canSave) return@Button
                     scope.launch {
-                        val newId = repository.insert(entity)
-                        Toast.makeText(ctx, "Liste gespeichert.", Toast.LENGTH_SHORT).show()
-                        onSaved(newId) // direkt zur Detail-Seite
+                        val ml = MonthlyList(
+                            monthIndex = monthIndex,
+                            year = year,                  // << ausgewähltes Jahr verwenden
+                            hourlyWage = wage!!,
+                            previousDebt = carry,
+                            monthlyIncome = income
+                        )
+                        repository.insert(ml)
+                        onSaved()
                     }
                 },
+                enabled = canSave,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                Text("Liste erstellen")
-            }
+                    .height(52.dp)
+            ) { Text("Liste erstellen") }
         }
-
-        // Zurück unten links
-        FilledTonalIconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .navigationBarsPadding()
-                .padding(start = 16.dp, bottom = 16.dp)
-                .size(56.dp)
-        ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun StartScreenPreview() {
-    MeinStundenzählerTheme {
-        // Preview: keine echten Repos
     }
 }

@@ -11,7 +11,11 @@ fun formatHours(totalMin: Int): String {
     return "%d:%02d".format(h, m)
 }
 
-fun monthName(index: Int): String = listOf(
+// Zentrale Monatsliste
+val MONTHS = listOf(
     "Januar","Februar","März","April","Mai","Juni",
     "Juli","August","September","Oktober","November","Dezember"
-)[index.coerceIn(0, 11)]
+)
+
+// monthName nutzt die zentrale Liste
+fun monthName(index: Int): String = MONTHS[index.coerceIn(0, 11)]

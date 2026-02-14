@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- dein bestehendes App-Theme -->
+    <style name="Theme.MeinStundenzähler" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- … deine bisherigen Items … -->
+    </style>
 
-    <style name="Theme.MeinStundenzähler" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Fallback-Splash (API 30 und älter) -->
+    <style name="Theme.Splash" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
 </resources>

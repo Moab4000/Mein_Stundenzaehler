@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.example.meinstundenzhler"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.meinstundenzhler"
-        minSdk = 33
-        targetSdk = 35
+        minSdk = 30
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -54,19 +54,31 @@ dependencies {
     implementation(libs.androidx.material3)
 
     // Icons (ohne Version, wegen BOM)
-    implementation("androidx.compose.material:material-icons-extended")
+     implementation(libs.androidx.material.icons.extended)
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.9.4")
+    implementation(libs.androidx.navigation.compose)
 
     // ConstraintLayout (falls du es noch nutzt)
-    implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
+    implementation(libs.androidx.constraintlayout.compose)
 
     // Room (SQLite)
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.appcompat)
-    kapt("androidx.room:room-compiler:2.6.1")
+    kapt(libs.androidx.room.compiler)
+
+    // Jetpack DataStore (Preferences)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.material)
+
+
+    implementation(libs.accompanist.systemuicontroller)
+
+    // app/build.gradle(.kts)
+    implementation(libs.androidx.core.splashscreen)
+
+
 
     // Tests/Debug
     testImplementation(libs.junit)
